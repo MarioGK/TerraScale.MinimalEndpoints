@@ -3,6 +3,7 @@
     <File Path="..\.github\copilot-instructions.md" />
     <File Path="..\.gitignore" />
     <File Path="..\AGENTS.md" />
+    <File Path="..\README.md" />
     <File Path=".editorconfig" />
     <File Path=".globalconfig" />
     <File Path="Directory.Build.props" />
