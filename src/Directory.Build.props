@@ -18,5 +18,11 @@
         <PackageTags>aspnetcore;minimal-apis;source-generator;endpoints;openapi;swagger</PackageTags>
 
         <NoWarn>$(NoWarn);NU1507;NU1900;NU1801</NoWarn>
+        
+        <!-- GitVersion-driven versioning: when GitVersion.MsBuild injects these variables they will be used -->
+        <Version Condition="'$(GitVersion_NuGetVersionV2)' != ''">$(GitVersion_NuGetVersionV2)</Version>
+        <AssemblyVersion Condition="'$(GitVersion_AssemblyVersion)' != ''">$(GitVersion_AssemblyVersion)</AssemblyVersion>
+        <FileVersion Condition="'$(GitVersion_AssemblyFileVersion)' != ''">$(GitVersion_AssemblyFileVersion)</FileVersion>
+        <InformationalVersion Condition="'$(GitVersion_InformationalVersion)' != ''">$(GitVersion_InformationalVersion)</InformationalVersion>
     </PropertyGroup>
 </Project>
