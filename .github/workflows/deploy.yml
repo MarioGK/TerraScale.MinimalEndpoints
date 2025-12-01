@@ -35,9 +35,23 @@ jobs:
         run: dotnet build --configuration Release --no-restore
         working-directory: ./src
 
-      - name: Run tests
-        run: dotnet test --configuration Release --no-build --verbosity normal
+      - name: Run tests with TUnit (produce TRX)
+        run: |
+          dotnet test --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx" --results-directory ./TestResults
         working-directory: ./src
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./src/TestResults/*.trx
+
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: ./src/TestResults/**/*.trx
 
       - name: Pack NuGet package
         run: dotnet pack MinimalEndpoints/MinimalEndpoints.csproj --configuration Release --output ./nupkg --no-build
