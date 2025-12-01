@@ -9,7 +9,13 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <AnalysisLevel>latest</AnalysisLevel>
 
-        <Authors>TerraScale</Authors>
+        <!-- NuGet Package Metadata -->
+        <Authors>MarioGK</Authors>
+        <PackageProjectUrl>https://github.com/MarioGK/MinimalEndpoints</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/MarioGK/MinimalEndpoints</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <LicenseExpression>MIT</LicenseExpression>
+        <PackageTags>aspnetcore;minimal-apis;source-generator;endpoints;openapi;swagger</PackageTags>
 
         <NoWarn>$(NoWarn);NU1507;NU1900;NU1801</NoWarn>
     </PropertyGroup>

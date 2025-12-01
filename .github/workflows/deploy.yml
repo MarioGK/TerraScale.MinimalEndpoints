@@ -1,0 +1,63 @@
+name: Deploy NuGet Package
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version (e.g., 1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ./src
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+        working-directory: ./src
+
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --verbosity normal
+        working-directory: ./src
+
+      - name: Pack NuGet package
+        run: dotnet pack MinimalEndpoints/MinimalEndpoints.csproj --configuration Release --output ./nupkg --no-build
+        working-directory: ./src
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push "./nupkg/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+        working-directory: ./src
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }} has been published to NuGet.org
+            
+            Package: https://www.nuget.org/packages/MinimalEndpoints
+          draft: false
+          prerelease: false
