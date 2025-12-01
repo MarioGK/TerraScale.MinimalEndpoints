@@ -1,7 +1,8 @@
 # MinimalEndpoints - Project Analysis for Agents
 
 ## Overview
-**MinimalEndpoints** is a C# source code generator that simplifies ASP.NET Core minimal API development by providing a FastEndpoints alternative built on top of minimal APIs. It combines the power of ASP.NET Core's minimal APIs with an attribute-driven, class-based endpoint structure.
+**MinimalEndpoints** is a C# source code generator that simplifies ASP.NET Core minimal API development by providing a FastEndpoints alternative built on top of minimal APIs.
+It combines the power of ASP.NET Core's minimal APIs with an attribute-driven, class-based endpoint structure.
 
 ## Project Purpose
 The library eliminates boilerplate code by automatically generating endpoint registration code from endpoint classes decorated with attributes, providing developers with:
@@ -114,28 +115,14 @@ public class CreateUserEndpoint : BaseMinimalApiEndpoint
 - Requires IMinimalEndpoint implementation
 - One endpoint per file rule
 - Clear diagnostic error messages with specific error codes:
-  - TSME001: Endpoint method must be async
-  - TSME002: Endpoint class must implement IMinimalEndpoint
-  - TSME003: Only one endpoint per file allowed
+  - ME001: Endpoint method must be async
+  - ME002: Endpoint class must implement IMinimalEndpoint
+  - ME003: Only one endpoint per file allowed
 
 ### 5. **Type Safety**
 - Full compile-time checking
 - Compile-time dependency resolution
 - Type-safe parameter binding
-
-## Technology Stack
-- **.NET Target**: netstandard2.0 (compatible with .NET 6+)
-- **Language**: C# with nullable reference types enabled
-- **Code Analysis**: Roslyn analyzers and source generators
-- **Build Environment**: 
-  - IsRoslynComponent: true
-  - EnforceExtendedAnalyzerRules: true
-  - TreatWarningsAsErrors: true
-
-## Dependencies
-- Microsoft.CodeAnalysis.Analyzers (v3.11.0)
-- Microsoft.CodeAnalysis.CSharp (v5.0.0)
-- Microsoft.CodeAnalysis.Common (v5.0.0)
 
 ## Development Workflow
 
@@ -172,15 +159,6 @@ The source generator runs during build and creates `MinimalEndpoints.g.cs` with 
 - Rate limiting support
 - Request/response logging
 - Health check endpoint generation
-- GraphQL mutation endpoint support
-- gRPC endpoint generation
-
-## Files to Focus On for Maintenance
-1. `MinimalEndpointGenerator.cs` - Core generation logic
-2. `EndpointAnalyzer.cs` - Validation and metadata extraction
-3. `EndpointRegistrationGenerator.cs` - Generated code templates
-4. `BaseMinimalApiEndpoint.cs` - Public API surface for endpoint classes
-5. `IMinimalEndpoint.cs` - Interface contract
 
 ## Testing
 - Unit tests in `MinimalEndpoints.Tests/`
