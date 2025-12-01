@@ -20,8 +20,3 @@ app.UseHttpsRedirection();
 app.MapMinimalEndpoints();
 
 app.Run();
-
-namespace MinimalEndpoints.Example
-{
-    public partial class Program;
-}

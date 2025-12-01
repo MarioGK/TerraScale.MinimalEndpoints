@@ -102,7 +102,7 @@ internal static class EndpointAnalyzer
         {
             var diagnostic = Diagnostic.Create(
                 new DiagnosticDescriptor(
-                    "TSME001",
+                    "ME001",
                     "Endpoint method must be async",
                     "Endpoint method '{0}' must return a Task (async). All endpoint methods must be asynchronous.",
                     "TerraScale.MinimalEndpoints",
