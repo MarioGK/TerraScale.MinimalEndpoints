@@ -1,5 +1,11 @@
 name: Deploy NuGet Package
 
+permissions:
+  contents: read
+  issues: read
+  checks: write
+  pull-requests: write
+
 on:
   push:
     tags:
