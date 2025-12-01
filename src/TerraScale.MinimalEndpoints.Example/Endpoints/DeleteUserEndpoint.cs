@@ -1,14 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
-using TerraScale.MinimalEndpoints.Attributes;
+// removed attribute usage; routing and metadata are now declared via IMinimalEndpoint/BaseMinimalApiEndpoint
 using TerraScale.MinimalEndpoints.Example.Services;
 
 namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
-[MinimalEndpoints("api/users")]
-[EndpointGroupName("User Management")]
 public class DeleteUserEndpoint : BaseMinimalApiEndpoint
 {
-    [HttpDelete("{id}")]
+    public override string Route => "api/users/{id}";
+    public override string HttpMethod => "DELETE";
+    public override string? GroupName => "User Management";
+    
     [Produces("application/json")]
     public async Task<IResult> DeleteUser([FromRoute] int id, [FromServices] IUserService userService)
     {

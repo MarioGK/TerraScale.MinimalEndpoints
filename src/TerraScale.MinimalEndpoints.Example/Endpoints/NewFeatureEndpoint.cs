@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
-using TerraScale.MinimalEndpoints.Attributes;
+// removed attribute usage; routing and metadata are now declared via IMinimalEndpoint/BaseMinimalApiEndpoint
 
 namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
-[MinimalEndpoints("api/new-features")]
 public class NewFeatureEndpoint : BaseMinimalApiEndpoint
 {
-    [HttpGet("/api/new-features")]
+    public override string Route => "/api/new-features";
+    public override string HttpMethod => "GET";
+    
     public async Task<IResult> Handle()
     {
         await Task.CompletedTask;

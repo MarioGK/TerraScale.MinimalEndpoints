@@ -9,16 +9,29 @@ namespace TerraScale.MinimalEndpoints;
 public abstract class BaseMinimalApiEndpoint : IMinimalEndpoint
 {
     /// <inheritdoc/>
-    public virtual string? GroupName => null;
+    /// <inheritdoc/>
+    public virtual System.Type? GroupType => null;
 
     /// <inheritdoc/>
     public virtual string[]? Tags => null;
 
+    /// <summary>
+    /// The route for this endpoint. Defaults to null/empty which will allow
+    /// generator to fall back to a convention-based route if needed.
+    /// </summary>
+    public virtual string? Route => null;
 
+    /// <summary>
+    /// The HTTP method for this endpoint (e.g. "GET", "POST"). Defaults to null
+    /// which will allow existing Http* attributes to be used for backward
+    /// compatibility by the analyzer/generator.
+    /// </summary>
+    public virtual EndpointHttpMethod? HttpMethod => null;
+    
     /// <summary>
     /// Gets or sets the HttpContext for the current request.
     /// </summary>
-    public HttpContext Context { get; set; } = default!;
+    public HttpContext Context { get; set; } = null!;
 
     /// <summary>
     /// Gets the current user from the HttpContext.
@@ -33,7 +46,7 @@ public abstract class BaseMinimalApiEndpoint : IMinimalEndpoint
     /// <summary>
     /// Returns an OK (200) result with value.
     /// </summary>
-    protected IResult Ok<T>(T value) => Results.Ok(value);
+    protected static IResult Ok<T>(T value) => Results.Ok(value);
 
     /// <summary>
     /// Returns a Created (201) result.
@@ -83,6 +96,6 @@ public abstract class BaseMinimalApiEndpoint : IMinimalEndpoint
     /// <summary>
     /// Returns a Problem (500) result.
     /// </summary>
-    protected IResult Problem(string? detail = null, string? instance = null, int? statusCode = null, string? title = null, string? type = null, System.Collections.Generic.IDictionary<string, object?>? extensions = null)
+    protected IResult Problem(string? detail = null, string? instance = null, int? statusCode = null, string? title = null, string? type = null, IDictionary<string, object?>? extensions = null)
         => Results.Problem(detail, instance, statusCode, title, type, extensions);
 }

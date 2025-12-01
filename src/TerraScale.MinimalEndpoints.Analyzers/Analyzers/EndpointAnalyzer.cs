@@ -10,15 +10,32 @@ internal static class EndpointAnalyzer
 {
     public static bool IsEndpointClass(SyntaxNode syntaxNode)
     {
-        return syntaxNode is ClassDeclarationSyntax classDeclaration &&
-               (classDeclaration.AttributeLists.Any(static al =>
-                   al.Attributes.Any(static a =>
-                       a.Name.ToString().Contains("MinimalEndpoints"))) ||
-                classDeclaration.DescendantNodes()
-                    .OfType<MethodDeclarationSyntax>()
-                    .Any(static m => m.AttributeLists
-                        .Any(static al => al.Attributes
-                            .Any(static a => a.Name.ToString().Contains("Http")))));
+        if (syntaxNode is not ClassDeclarationSyntax classDeclaration)
+            return false;
+
+        // An endpoint class can be identified in a few ways:
+        // - Implements IMinimalEndpoint (preferred)
+        // - Exposes Route or HttpMethod properties (convention)
+        // - Still supports the older MinimalEndpoints attribute or method-level Http* attributes
+
+        var hasMinimalEndpointsAttribute = classDeclaration.AttributeLists
+            .Any(al => al.Attributes.Any(a => a.Name.ToString().Contains("MinimalEndpoints")));
+
+        var hasHttpMethodAttributes = classDeclaration.DescendantNodes()
+            .OfType<MethodDeclarationSyntax>()
+            .Any(m => m.AttributeLists
+                .Any(al => al.Attributes
+                    .Any(a => a.Name.ToString().Contains("Http"))));
+
+        var hasRouteProperty = classDeclaration.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Any(p => p.Identifier.Text == "Route" || p.Identifier.Text == "BaseRoute");
+
+        var hasHttpMethodProperty = classDeclaration.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Any(p => p.Identifier.Text == "HttpMethod" || p.Identifier.Text == "Method");
+
+        return hasMinimalEndpointsAttribute || hasHttpMethodAttributes || hasRouteProperty || hasHttpMethodProperty;
     }
 
     public static ClassDeclarationSyntax? GetEndpointClass(GeneratorSyntaxContext context)
@@ -35,7 +52,15 @@ internal static class EndpointAnalyzer
                 .Any(al => al.Attributes
                     .Any(a => a.Name.ToString().Contains("Http"))));
 
-        if (!hasMinimalEndpointsAttribute && !hasHttpMethodAttributes)
+        var hasRouteProperty = classDeclaration.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Any(p => p.Identifier.Text == "Route" || p.Identifier.Text == "BaseRoute");
+
+        var hasHttpMethodProperty = classDeclaration.Members
+            .OfType<PropertyDeclarationSyntax>()
+            .Any(p => p.Identifier.Text == "HttpMethod" || p.Identifier.Text == "Method");
+
+        if (!hasMinimalEndpointsAttribute && !hasHttpMethodAttributes && !hasRouteProperty && !hasHttpMethodProperty)
             return null;
 
         return classDeclaration;
@@ -51,10 +76,14 @@ internal static class EndpointAnalyzer
         if (methodSyntax == null)
             return null;
 
-        // Check if method has HTTP method attributes
+        // Determine HTTP method and route. Preference order:
+        // 1) Method-level Http* attribute (backwards compatibility)
+        // 2) Class-level HttpMethod / Route properties (new convention)
+
         var httpMethod = string.Empty;
         var route = string.Empty;
 
+        // First attempt to read method-level attribute (backward compatibility)
         foreach (var attribute in methodSymbol.GetAttributes())
         {
             var attributeName = attribute.AttributeClass?.Name;
@@ -93,7 +122,13 @@ internal static class EndpointAnalyzer
             }
         }
 
-        // Skip methods without HTTP attributes
+        // If no method-level HTTP attribute was found, try to read class-level HttpMethod property
+        if (string.IsNullOrEmpty(httpMethod))
+        {
+            httpMethod = GetHttpMethodFromClass(methodSymbol.ContainingType) ?? string.Empty;
+        }
+
+        // If still no HTTP method is provided, this is not an endpoint we can register
         if (string.IsNullOrEmpty(httpMethod))
             return null;
 
@@ -132,8 +167,17 @@ internal static class EndpointAnalyzer
              }
         }
 
-        // Combine base route with method route
-        var fullRoute = CombineRoutes(baseRoute, route);
+        // If method-level route is empty, attempt to get class-level Route property
+        var effectiveBaseRoute = string.IsNullOrEmpty(baseRoute) ? string.Empty : baseRoute;
+        if (string.IsNullOrEmpty(route))
+        {
+            var rs = GetBaseRoute(methodSymbol.ContainingType);
+            if (!string.IsNullOrEmpty(rs))
+                effectiveBaseRoute = rs;
+        }
+
+        // For now, treat route as the effective route; if both exist, combine
+        var fullRoute = CombineRoutes(effectiveBaseRoute, route);
 
         // Analyze parameters
         var parameters = new List<EndpointParameter>();
@@ -179,9 +223,12 @@ internal static class EndpointAnalyzer
             .Any(a => a.AttributeClass?.Name.Contains("Obsolete") == true);
 
         // Get group name from IMinimalEndpoint implementation
-        var groupName = methodSymbol.ContainingType.GetAttributes()
-            .FirstOrDefault(a => a.AttributeClass?.Name == "EndpointGroupNameAttribute")?
-            .ConstructorArguments.FirstOrDefault().Value?.ToString() ?? methodSymbol.ContainingType.Name;
+        // Prefer a GroupName property on the class (IMinimalEndpoint), then fall back to the attribute
+        var groupName = ExtractStringFromProperty(methodSymbol.ContainingType, new[] { "GroupName" })
+                        ?? methodSymbol.ContainingType.GetAttributes()
+                            .FirstOrDefault(a => a.AttributeClass?.Name == "EndpointGroupNameAttribute")?
+                            .ConstructorArguments.FirstOrDefault().Value?.ToString()
+                        ?? methodSymbol.ContainingType.Name;
 
         // Extract produces/consumes from attributes
         var produces = ExtractProducesFromAttribute(methodSymbol, "ProducesAttribute");
@@ -192,12 +239,45 @@ internal static class EndpointAnalyzer
 
         // Extract response descriptions from attributes and merge
         var responseAttributes = methodSymbol.GetAttributes()
-            .Where(a => a.AttributeClass?.Name == "ResponseDescriptionAttribute");
+            // Resolve group from several places (prefer generic base type TGroup, then
+            // GroupType property, then EndpointGroupNameAttribute, finally class name).
+            string? groupName = null;
 
-        foreach (var attr in responseAttributes)
-        {
-            if (attr.ConstructorArguments.Length == 2)
+            // 1) If endpoint inherits from BaseMinimalApiEndpoint<TGroup>, get TGroup name
+            var baseType = methodSymbol.ContainingType.BaseType;
+            if (baseType != null && baseType.IsGenericType)
             {
+                var genericDef = baseType.OriginalDefinition?.Name ?? string.Empty;
+                if (genericDef.Contains("BaseMinimalApiEndpoint"))
+                {
+                    var typeArg = baseType.TypeArguments.FirstOrDefault();
+                    if (typeArg != null)
+                    {
+                        groupName = GetGroupNameFromGroupType(typeArg as INamedTypeSymbol);
+                    }
+                }
+            }
+
+            // 2) If no generic base group, try class-level GroupType property (typeof(SomeGroup))
+            if (string.IsNullOrEmpty(groupName))
+            {
+                var typeName = ExtractTypeNameFromProperty(methodSymbol.ContainingType, new[] { "GroupType" });
+                if (!string.IsNullOrEmpty(typeName))
+                {
+                    groupName = typeName;
+                }
+            }
+
+            // 3) Fallback to attribute
+            if (string.IsNullOrEmpty(groupName))
+            {
+                groupName = methodSymbol.ContainingType.GetAttributes()
+                    .FirstOrDefault(a => a.AttributeClass?.Name == "EndpointGroupNameAttribute")?
+                    .ConstructorArguments.FirstOrDefault().Value?.ToString();
+            }
+
+            // 4) Final fallback to class name
+            groupName ??= methodSymbol.ContainingType.Name;
                 if (attr.ConstructorArguments[0].Value is int statusCode)
                 {
                     var desc = attr.ConstructorArguments[1].Value?.ToString() ?? string.Empty;
@@ -276,6 +356,12 @@ internal static class EndpointAnalyzer
 
     public static string GetBaseRoute(INamedTypeSymbol classSymbol)
     {
+        // First try to find a property named Route or BaseRoute on the class declaration
+        var routeFromProp = ExtractStringFromProperty(classSymbol, new[] { "Route", "BaseRoute" });
+        if (!string.IsNullOrEmpty(routeFromProp))
+            return routeFromProp ?? string.Empty;
+
+        // Fall back to the legacy MinimalEndpoints attribute
         var minimalEndpointsAttribute = classSymbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.Name.Contains("MinimalEndpoints") == true);
 
@@ -285,6 +371,61 @@ internal static class EndpointAnalyzer
         }
 
         return string.Empty;
+    }
+
+    private static string? GetHttpMethodFromClass(INamedTypeSymbol classSymbol)
+    {
+        var methodFromProp = ExtractStringFromProperty(classSymbol, new[] { "HttpMethod", "Method" });
+        if (!string.IsNullOrEmpty(methodFromProp))
+            return methodFromProp?.ToUpperInvariant();
+
+        return null;
+    }
+
+    private static string? ExtractStringFromProperty(INamedTypeSymbol classSymbol, string[] propertyNames)
+    {
+        // Loop each declaration syntax and inspect any property declarations
+        foreach (var decl in classSymbol.DeclaringSyntaxReferences)
+        {
+            var node = decl.GetSyntax();
+            if (node is ClassDeclarationSyntax cls)
+            {
+                foreach (var prop in cls.Members.OfType<PropertyDeclarationSyntax>())
+                {
+                    if (!propertyNames.Contains(prop.Identifier.Text))
+                        continue;
+
+                    // Expression-bodied property: => "literal"
+                    if (prop.ExpressionBody?.Expression is LiteralExpressionSyntax lit && lit.IsKind(SyntaxKind.StringLiteralExpression))
+                    {
+                        return lit.Token.ValueText;
+                    }
+
+                    // Auto-property initializer: { get; } = "literal";
+                    if (prop.Initializer?.Value is LiteralExpressionSyntax initLit && initLit.IsKind(SyntaxKind.StringLiteralExpression))
+                    {
+                        return initLit.Token.ValueText;
+                    }
+
+                    // Getter with return statement
+                    if (prop.AccessorList != null)
+                    {
+                        var getter = prop.AccessorList.Accessors.FirstOrDefault(a => a.Keyword.IsKind(SyntaxKind.GetKeyword));
+                        if (getter != null)
+                        {
+                            // Try to find a return statement returning a string literal
+                            var returnStmt = getter.Body?.Statements.OfType<ReturnStatementSyntax>().FirstOrDefault();
+                            if (returnStmt?.Expression is LiteralExpressionSyntax returnLit && returnLit.IsKind(SyntaxKind.StringLiteralExpression))
+                            {
+                                return returnLit.Token.ValueText;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string GetRouteFromAttribute(AttributeData attribute)

@@ -5,7 +5,7 @@ namespace TerraScale.MinimalEndpoints.Analyzers.Generators;
 
 internal static class EndpointRegistrationGenerator
 {
-    public static string GenerateEndpointRegistrationCode(List<EndpointMethod> endpointMethods)
+    public static string GenerateEndpointRegistrationCode(List<EndpointMethod> endpointMethods, string assemblyName)
     {
         var sb = new IndentedStringBuilder();
 
@@ -17,15 +17,21 @@ internal static class EndpointRegistrationGenerator
         sb.AppendLine("using Microsoft.AspNetCore.Http;");
 
         sb.AppendLine();
-        sb.AppendLine("namespace TerraScale.MinimalEndpoints;");
+        // Use a unique namespace per assembly to avoid ambiguous extension method
+        // conflicts when multiple assemblies generate registration helpers. Sanitize
+        // assemblyName into a simple identifier.
+        var sanitized = new string(assemblyName.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
+        sb.AppendLine($"namespace TerraScale.MinimalEndpoints.Generated_{sanitized};");
         sb.AppendLine();
         sb.AppendLine("public static class MinimalEndpointRegistration");
         sb.AppendLine("{");
 
         using (sb.Indent())
         {
-            // AddMinimalEndpoints
-            sb.AppendLine("public static IServiceCollection AddMinimalEndpoints(this IServiceCollection services)");
+            // AddMinimalEndpoints (generated) - use unique names to avoid conflicts when multiple
+            // assemblies produce generated registration code. Consumers should call the generated
+            // versions below (AddGeneratedMinimalEndpoints / MapGeneratedMinimalEndpoints).
+            sb.AppendLine("public static IServiceCollection AddGeneratedMinimalEndpoints(this IServiceCollection services)");
             sb.AppendLine("{");
             using (sb.Indent())
             {
@@ -48,8 +54,8 @@ internal static class EndpointRegistrationGenerator
             sb.AppendLine("}");
             sb.AppendLine();
 
-            // MapMinimalEndpoints
-            sb.AppendLine("public static void MapMinimalEndpoints(this IEndpointRouteBuilder endpoints)");
+            // MapMinimalEndpoints (generated)
+            sb.AppendLine("public static void MapGeneratedMinimalEndpoints(this IEndpointRouteBuilder endpoints)");
             sb.AppendLine("{");
             using (sb.Indent())
             {

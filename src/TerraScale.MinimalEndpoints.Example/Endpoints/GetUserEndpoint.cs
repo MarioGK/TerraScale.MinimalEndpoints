@@ -1,14 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
-using TerraScale.MinimalEndpoints.Attributes;
+// removed attribute usage; routing and metadata are now declared via IMinimalEndpoint/BaseMinimalApiEndpoint
 using TerraScale.MinimalEndpoints.Example.Models;
 using TerraScale.MinimalEndpoints.Example.Services;
 
 namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
-[MinimalEndpoints("api/users")]
-[EndpointGroupName("User Management")]
 public class GetUserEndpoint : BaseMinimalApiEndpoint
 {
+    public override string Route => "api/users/{id}";
+    public override string HttpMethod => "GET";
+    public override string? GroupName => "User Management";
     /// <summary>
     /// Gets a user by ID
     /// </summary>
@@ -16,7 +17,7 @@ public class GetUserEndpoint : BaseMinimalApiEndpoint
     /// <param name="userService">The user service</param>
     /// <returns>The user if found, or null</returns>
     /// <response code="200">User found or null if not found</response>
-    [HttpGet("{id}")]
+    
     [Produces("application/json")]
     public async Task<User?> GetUser([FromRoute] int id, [FromServices] IUserService userService)
     {

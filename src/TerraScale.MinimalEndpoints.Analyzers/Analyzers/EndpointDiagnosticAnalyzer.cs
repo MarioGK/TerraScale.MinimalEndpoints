@@ -48,20 +48,34 @@ public class EndpointDiagnosticAnalyzer : DiagnosticAnalyzer
     {
         var namedType = (INamedTypeSymbol)context.Symbol;
 
-        // Check for MinimalEndpoints attribute or Http Methods
+        // Only analyze concrete classes (skip interfaces, enums, delegates, attributes base types etc.)
+        if (namedType.TypeKind != TypeKind.Class)
+            return;
+
+        // Skip attribute classes themselves (e.g., MinimalEndpointsAttribute)
+        if (namedType.BaseType?.ToDisplayString().Contains("System.Attribute") == true)
+            return;
+
+        // Detect whether this named type looks like an endpoint class.
+        // It can be marked with the legacy MinimalEndpoints attribute, contain
+        // method-level Http* attributes, or expose Route/HttpMethod properties.
         var hasMinimalEndpointsAttribute = namedType.GetAttributes()
             .Any(a => a.AttributeClass?.Name.Contains("MinimalEndpoints") == true);
+
+        var hasRouteOrMethodProperty = namedType.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Any(p => p.Name == "Route" || p.Name == "BaseRoute" || p.Name == "HttpMethod" || p.Name == "Method");
 
         var httpMethods = namedType.GetMembers()
             .OfType<IMethodSymbol>()
             .Where(m => m.DeclaredAccessibility == Accessibility.Public &&
                        !m.IsStatic &&
-                       m.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("Http") == true))
+                       m.MethodKind == MethodKind.Ordinary)
             .ToList();
 
-        var hasHttpMethodAttributes = httpMethods.Any();
+        var hasHttpMethodAttributes = httpMethods.Any(m => m.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("Http") == true));
 
-        if (!hasMinimalEndpointsAttribute && !hasHttpMethodAttributes)
+        if (!hasMinimalEndpointsAttribute && !hasHttpMethodAttributes && !hasRouteOrMethodProperty)
             return;
 
         // ME002: Must implement IMinimalEndpoint
@@ -75,17 +89,37 @@ public class EndpointDiagnosticAnalyzer : DiagnosticAnalyzer
         }
 
         // ME003: Single endpoint per file
-        if (httpMethods.Count > 1)
+        // If the class uses method-level Http attributes, count those methods; otherwise
+        // count ordinary public instance methods and enforce single endpoint per class.
+        int countToCheck = httpMethods.Count;
+        if (hasHttpMethodAttributes)
+        {
+            countToCheck = httpMethods.Count(m => m.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("Http") == true));
+        }
+
+        if (countToCheck > 1)
         {
             context.ReportDiagnostic(Diagnostic.Create(
                 SingleEndpoint,
                 namedType.Locations.FirstOrDefault(),
                 namedType.Name,
-                httpMethods.Count));
+                countToCheck));
         }
 
         // ME001: Async required
-        foreach (var method in httpMethods)
+        // Determine which methods are subject to async check: either those with Http attributes
+        // or, if no method-level attributes are present, all ordinary public instance methods
+        IEnumerable<IMethodSymbol> methodsToCheck;
+        if (hasHttpMethodAttributes)
+        {
+            methodsToCheck = httpMethods.Where(m => m.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("Http") == true));
+        }
+        else
+        {
+            methodsToCheck = httpMethods;
+        }
+
+        foreach (var method in methodsToCheck)
         {
             if (!method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat).Contains("Task"))
             {

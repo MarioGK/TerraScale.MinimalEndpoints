@@ -1,12 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
-using TerraScale.MinimalEndpoints.Attributes;
+// removed attribute usage; routing and metadata are now declared via IMinimalEndpoint/BaseMinimalApiEndpoint
 
 namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
-[MinimalEndpoints("api/weather")]
-[EndpointGroupName("Weather API")]
 public class WeatherEndpoints : BaseMinimalApiEndpoint
 {
+    public override string Route => "api/weather";
+    public override string HttpMethod => "GET";
+    public override string? GroupName => "Weather API";
     /// <summary>
     /// Gets weather information for a city
     /// </summary>
@@ -18,7 +19,7 @@ public class WeatherEndpoints : BaseMinimalApiEndpoint
     /// </remarks>
     /// <response code="200">Weather information retrieved successfully</response>
     /// <response code="400">Invalid city name provided</response>
-    [HttpGet]
+    
     [Produces("application/json", "text/plain")]
     public async Task<string> GetWeather([FromQuery] string city)
     {

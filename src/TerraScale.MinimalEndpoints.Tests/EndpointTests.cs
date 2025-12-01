@@ -89,7 +89,7 @@ public class EndpointTests
         await Assert.That(headerValues.FirstOrDefault()).IsEqualTo("Configured");
 
         // Verify Content (Ok helper and Context access)
-        var content = await response.Content.ReadFromJsonAsync<Example.Models.NewFeatureResponse>();
+        var content = await response.Content.ReadFromJsonAsync<NewFeatureResponse>();
         await Assert.That(content).IsNotNull();
         await Assert.That(content!.Message).IsEqualTo("Success");
     }

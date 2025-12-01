@@ -51,16 +51,16 @@ public class MinimalEndpointGenerator : IIncrementalGenerator
                 continue;
             }
 
-            // Validate single endpoint per file - count HTTP method attributes
+            // Validate single endpoint per file - count public instance methods (one endpoint per class)
             var httpMethodCount = classSymbol.GetMembers()
                 .OfType<IMethodSymbol>()
                 .Count(m => m.DeclaredAccessibility == Accessibility.Public &&
                            !m.IsStatic &&
-                           m.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("Http") == true));
+                           m.MethodKind == MethodKind.Ordinary);
 
             if (httpMethodCount == 0)
             {
-                continue; // No HTTP methods, skip this class
+                continue; // No public handler methods, skip this class
             }
 
             // Diagnostics handled by EndpointDiagnosticAnalyzer
@@ -72,12 +72,13 @@ public class MinimalEndpointGenerator : IIncrementalGenerator
             // Get the base route from MinimalEndpoints attribute
             var baseRoute = EndpointAnalyzer.GetBaseRoute(classSymbol);
 
-            // Find all public methods with HTTP attributes in the class
+            // Find all public instance methods and analyze them (Analyzer will filter out non-endpoints)
             foreach (var member in classSymbol.GetMembers())
             {
-                if (member is IMethodSymbol methodSymbol && 
+                if (member is IMethodSymbol methodSymbol &&
                     methodSymbol.DeclaredAccessibility == Accessibility.Public &&
-                    !methodSymbol.IsStatic)
+                    !methodSymbol.IsStatic &&
+                    methodSymbol.MethodKind == MethodKind.Ordinary)
                 {
                     var dummyDiagnostics = new List<Diagnostic>();
                     var endpointMethod = EndpointAnalyzer.AnalyzeEndpointMethod(methodSymbol, classSyntax, semanticModel, baseRoute, dummyDiagnostics);
@@ -89,8 +90,11 @@ public class MinimalEndpointGenerator : IIncrementalGenerator
             }
         }
 
-        // Generate the endpoint registration code
-        var sourceCode = EndpointRegistrationGenerator.GenerateEndpointRegistrationCode(endpointMethods);
+        // Generate the endpoint registration code. Include assembly name so generated
+        // registration namespace is unique per compilation, avoiding duplicate extension
+        // method ambiguity when multiple assemblies generate registration helpers.
+        var assemblyName = compilation.AssemblyName ?? "Generated";
+        var sourceCode = EndpointRegistrationGenerator.GenerateEndpointRegistrationCode(endpointMethods, assemblyName);
         context.AddSource("MinimalEndpoints.g.cs", SourceText.From(sourceCode, Encoding.UTF8));
     }
 }
