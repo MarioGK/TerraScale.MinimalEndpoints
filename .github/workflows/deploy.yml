@@ -1,7 +1,7 @@
 name: Deploy NuGet Package
 
 permissions:
-  contents: read
+  contents: write
   issues: read
   checks: write
   pull-requests: write
@@ -94,7 +94,7 @@ jobs:
         run: dotnet nuget push "./nupkg/*.nupkg" --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
         working-directory: ./src
 
-      - name: Create Release
+      - name: Create Release (from tag)
         uses: actions/create-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -104,7 +104,64 @@ jobs:
           release_name: Release ${{ github.ref_name }}
           body: |
             Release ${{ github.ref_name }} has been published to NuGet.org
-            
+
+            Package: https://www.nuget.org/packages/MinimalEndpoints
+          draft: false
+          prerelease: false
+
+      - id: tag_and_release
+        name: Create tag + Release from main
+        if: github.ref == 'refs/heads/main'
+        env:
+          VERSION: ${{ env.VERSION }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Preparing release for VERSION=$VERSION"
+          # guard: if VERSION is empty or a prerelease (contains '-') we won't create a release
+          if [ -z "$VERSION" ]; then
+            echo "VERSION not set — not creating release"
+            echo "CREATE_RELEASE=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          if echo "$VERSION" | grep -q "-"; then
+            echo "VERSION contains a pre-release label — not creating release"
+            echo "CREATE_RELEASE=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          echo "CREATE_RELEASE=true" >> $GITHUB_ENV
+
+          # ensure local git history is complete; 'actions/checkout@v4' used fetch-depth: 0 so limited checks shouldn't be needed
+          git fetch --prune --unshallow || true
+
+          # if tag already exists remotely we do not create it again
+          if git ls-remote --tags origin refs/tags/v$VERSION | grep -q "refs/tags/v$VERSION"; then
+            echo "Tag v$VERSION already exists on origin - skipping tag creation"
+            # still allow release creation (tag exists), set outputs
+            echo "create_release=true" >> $GITHUB_OUTPUT
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a v$VERSION -m "Release v$VERSION"
+          git push origin refs/tags/v$VERSION
+          echo "create_release=true" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release (from main tag)
+        uses: actions/create-release@v1
+        if: github.ref == 'refs/heads/main' && steps.tag_and_release.outputs.create_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.tag_and_release.outputs.version }}
+          release_name: Release v${{ steps.tag_and_release.outputs.version }}
+          body: |
+            Release v${{ steps.tag_and_release.outputs.version }} has been published to NuGet.org
+
             Package: https://www.nuget.org/packages/MinimalEndpoints
           draft: false
           prerelease: false
