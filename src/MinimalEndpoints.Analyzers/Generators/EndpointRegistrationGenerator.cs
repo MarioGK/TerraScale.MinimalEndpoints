@@ -17,7 +17,7 @@ internal static class EndpointRegistrationGenerator
         sb.AppendLine("using Microsoft.AspNetCore.Http;");
 
         sb.AppendLine();
-        sb.AppendLine("namespace TerraScale.MinimalEndpoints;");
+        sb.AppendLine("namespace MinimalEndpoints;");
         sb.AppendLine();
         sb.AppendLine("public static class MinimalEndpointRegistration");
         sb.AppendLine("{");
@@ -131,8 +131,8 @@ internal static class EndpointRegistrationGenerator
             {
                 // Set Context on base class if applicable
                 // Check if instance inherits from BaseMinimalApiEndpoint
-                // Use fully qualified name for BaseMinimalApiEndpoint: TerraScale.MinimalEndpoints.BaseMinimalApiEndpoint
-                sb.AppendLine($"if (instance is TerraScale.MinimalEndpoints.BaseMinimalApiEndpoint baseEp)");
+                // Use fully qualified name for BaseMinimalApiEndpoint: MinimalEndpoints.BaseMinimalApiEndpoint
+                sb.AppendLine($"if (instance is MinimalEndpoints.BaseMinimalApiEndpoint baseEp)");
                 sb.AppendLine("{");
                 using (sb.Indent())
                 {

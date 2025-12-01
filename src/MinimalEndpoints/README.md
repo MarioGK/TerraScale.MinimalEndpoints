@@ -1,4 +1,4 @@
-# TerraScale.MinimalEndpoints
+# MinimalEndpoints
 
 A source generator library that makes it easier to work with Minimal APIs in ASP.NET Core by providing a per-endpoint file pattern with automatic registration.
 
@@ -20,8 +20,8 @@ Each endpoint class must implement `IMinimalEndpoint` or inherit from `BaseMinim
 
 ```csharp
 using Microsoft.AspNetCore.Mvc;
-using TerraScale.MinimalEndpoints;
-using TerraScale.MinimalEndpoints.Attributes;
+using MinimalEndpoints;
+using MinimalEndpoints.Attributes;
 
 [MinimalEndpoints("api/v1/users")]
 [EndpointGroupName("User Management")]

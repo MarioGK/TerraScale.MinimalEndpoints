@@ -11,7 +11,7 @@ public class EndpointDiagnosticAnalyzer : DiagnosticAnalyzer
         "ME001",
         "Endpoint method must be async",
         "Endpoint method '{0}' must return a Task (async). All endpoint methods must be asynchronous.",
-        "TerraScale.MinimalEndpoints",
+        "MinimalEndpoints",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
@@ -19,7 +19,7 @@ public class EndpointDiagnosticAnalyzer : DiagnosticAnalyzer
         "ME002",
         "Endpoint class must implement IMinimalEndpoint",
         "Endpoint class '{0}' must implement the IMinimalEndpoint interface",
-        "TerraScale.MinimalEndpoints",
+        "MinimalEndpoints",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 
@@ -27,7 +27,7 @@ public class EndpointDiagnosticAnalyzer : DiagnosticAnalyzer
         "ME003",
         "Only one endpoint per file allowed",
         "Endpoint class '{0}' contains {1} HTTP method endpoints. Only one endpoint per file is allowed.",
-        "TerraScale.MinimalEndpoints",
+        "MinimalEndpoints",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
 

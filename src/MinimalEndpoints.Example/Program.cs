@@ -1,4 +1,5 @@
 using MinimalEndpoints.Example.Services;
+using MinimalEndpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 

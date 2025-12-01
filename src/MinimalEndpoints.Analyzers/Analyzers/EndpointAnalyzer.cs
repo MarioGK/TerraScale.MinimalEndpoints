@@ -105,7 +105,7 @@ internal static class EndpointAnalyzer
                     "ME001",
                     "Endpoint method must be async",
                     "Endpoint method '{0}' must return a Task (async). All endpoint methods must be asynchronous.",
-                    "TerraScale.MinimalEndpoints",
+                    "MinimalEndpoints",
                     DiagnosticSeverity.Error,
                     isEnabledByDefault: true),
                 methodSyntax.GetLocation(),
