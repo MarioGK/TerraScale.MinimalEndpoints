@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-// removed attribute usage; routing and metadata are now declared via IMinimalEndpoint/BaseMinimalApiEndpoint
+
 using TerraScale.MinimalEndpoints.Example.Models;
 using TerraScale.MinimalEndpoints.Example.Services;
 using TerraScale.MinimalEndpoints.Example.Groups;
