@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using TerraScale.MinimalEndpoints;
+using TerraScale.MinimalEndpoints.Groups;
 
 namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 

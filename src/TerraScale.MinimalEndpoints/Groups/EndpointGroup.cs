@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Routing;
 
-namespace TerraScale.MinimalEndpoints;
+namespace TerraScale.MinimalEndpoints.Groups;
 
 /// <summary>
 /// Interface for endpoint groups. Implementations may override Name to

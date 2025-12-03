@@ -1,3 +1,5 @@
+using TerraScale.MinimalEndpoints.Groups;
+
 namespace TerraScale.MinimalEndpoints;
 
 /// <summary>
