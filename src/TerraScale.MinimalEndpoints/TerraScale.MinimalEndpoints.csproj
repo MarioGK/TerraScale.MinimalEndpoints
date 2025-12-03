@@ -9,8 +9,6 @@
         <DevelopmentDependency>false</DevelopmentDependency>
         
         <!-- NuGet Package Settings -->
-        <!-- Enable creating a NuGet package on build so we can auto-version the package with GitVersion -->
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <IsPackable>true</IsPackable>
         <PackageDescription>A source code generator for ASP.NET Core that simplifies minimal API development with an attribute-driven, class-based endpoint structure.</PackageDescription>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -29,12 +27,6 @@
     <!-- Include README in package -->
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    </ItemGroup>
-    <ItemGroup>
-      <PackageReference Include="GitVersion.MsBuild" Version="6.5.1">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
     </ItemGroup>
 
 </Project>

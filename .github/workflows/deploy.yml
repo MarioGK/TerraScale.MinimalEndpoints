@@ -45,7 +45,6 @@ jobs:
 
       - name: Run tests with TUnit (produce TRX)
         run: |
-          # Use the MTP test runner mode (global.json config) and pass TUnit-specific flags
           dotnet test --configuration Release --no-build --results-directory ./TestResults --report-trx --report-trx-filename TestResults.trx
         working-directory: ./src
 
@@ -62,29 +61,44 @@ jobs:
         with:
           files: ./src/TestResults/**/*.trx
 
-      - name: Ensure jq is available (used to parse gitversion output)
-        run: |
-          sudo apt-get update && sudo apt-get install -y jq
-
       - name: Determine package version
-        # When invoked with workflow_dispatch and a version input, we prefer that.
-        # When running on a tag we use the tag name. Otherwise, we read the GitVersion output
-        # produced during the build (obj/gitversion.json) and use NuGetVersionV2 so the package
-        # gets a CI-incremented version on main.
         run: |
-          echo "GITHUB_REF=$GITHUB_REF"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
             echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+            # If triggered by a tag, use that version
+            TAG=${GITHUB_REF#refs/tags/}
+            echo "VERSION=${TAG#v}" >> $GITHUB_ENV
           else
-            # GitVersion MSBuild target creates obj/gitversion.json in the project folder
-            echo "Reading gitversion file: TerraScale.MinimalEndpoints/obj/gitversion.json"
-            cat TerraScale.MinimalEndpoints/obj/gitversion.json
-            VERSION=$(jq -r '.NuGetVersionV2' TerraScale.MinimalEndpoints/obj/gitversion.json)
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
+            # Auto-increment logic
+            git fetch --tags
+
+            # Filter for strict vX.Y.Z format to avoid tags like 'vnull'
+            # We use { ... || true; } to ensure grep doesn't fail the step if no tags match
+            LATEST_TAG=$(git tag -l "v*" | { grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" || true; } | sort -V | tail -n1)
+            echo "Latest semver tag found: '$LATEST_TAG'"
+
+            if [ -z "$LATEST_TAG" ]; then
+              echo "No valid semver tag found. Defaulting to 1.0.0"
+              NEW_VERSION="1.0.0"
+            else
+              VERSION_NUM=${LATEST_TAG#v}
+              IFS='.' read -r -a PARTS <<< "$VERSION_NUM"
+              MAJOR=${PARTS[0]}
+              MINOR=${PARTS[1]}
+              PATCH=${PARTS[2]}
+
+              # Sanity check: ensure they are numbers
+              if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then MAJOR=0; fi
+              if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then MINOR=0; fi
+              if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then PATCH=0; fi
+
+              PATCH=$((PATCH + 1))
+              NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+            echo "Calculated new version: $NEW_VERSION"
+            echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
           fi
-        working-directory: ./src
 
       - name: Pack NuGet package
         run: dotnet pack TerraScale.MinimalEndpoints/TerraScale.MinimalEndpoints.csproj --configuration Release --output ./nupkg --no-build -p:PackageVersion=${{ env.VERSION }}
@@ -117,39 +131,24 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Preparing release for VERSION=$VERSION"
-          # guard: if VERSION is empty or a prerelease (contains '-') we won't create a release
           if [ -z "$VERSION" ]; then
-            echo "VERSION not set — not creating release"
-            echo "CREATE_RELEASE=false" >> $GITHUB_ENV
-            exit 0
+             echo "VERSION not set"
+             exit 1
           fi
 
-          if echo "$VERSION" | grep -q "-"; then
-            echo "VERSION contains a pre-release label — not creating release"
-            echo "CREATE_RELEASE=false" >> $GITHUB_ENV
-            exit 0
-          fi
-
-          echo "CREATE_RELEASE=true" >> $GITHUB_ENV
-
-          # ensure local git history is complete; 'actions/checkout@v4' used fetch-depth: 0 so limited checks shouldn't be needed
-          git fetch --prune --unshallow || true
-
-          # if tag already exists remotely we do not create it again
+          # Check if tag exists
           if git ls-remote --tags origin refs/tags/v$VERSION | grep -q "refs/tags/v$VERSION"; then
-            echo "Tag v$VERSION already exists on origin - skipping tag creation"
-            # still allow release creation (tag exists), set outputs
-            echo "create_release=true" >> $GITHUB_OUTPUT
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            exit 0
+            echo "Tag v$VERSION already exists on origin. This shouldn't happen with auto-increment logic unless concurrent builds."
+            echo "create_release=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+             git config user.name "github-actions[bot]"
+             git config user.email "github-actions[bot]@users.noreply.github.com"
+             git tag -a v$VERSION -m "Release v$VERSION"
+             git push origin refs/tags/v$VERSION
+             echo "create_release=true" >> $GITHUB_OUTPUT
+             echo "version=$VERSION" >> $GITHUB_OUTPUT
           fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a v$VERSION -m "Release v$VERSION"
-          git push origin refs/tags/v$VERSION
-          echo "create_release=true" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Release (from main tag)
         uses: actions/create-release@v1
