@@ -72,17 +72,27 @@ jobs:
           else
             # Auto-increment logic
             git fetch --tags
-            LATEST_TAG=$(git tag -l "v*" | sort -V | tail -n1)
-            echo "Latest tag found: $LATEST_TAG"
+
+            # Filter for strict vX.Y.Z format to avoid tags like 'vnull'
+            # We use { ... || true; } to ensure grep doesn't fail the step if no tags match
+            LATEST_TAG=$(git tag -l "v*" | { grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" || true; } | sort -V | tail -n1)
+            echo "Latest semver tag found: '$LATEST_TAG'"
 
             if [ -z "$LATEST_TAG" ]; then
+              echo "No valid semver tag found. Defaulting to 1.0.0"
               NEW_VERSION="1.0.0"
             else
               VERSION_NUM=${LATEST_TAG#v}
               IFS='.' read -r -a PARTS <<< "$VERSION_NUM"
-              MAJOR=${PARTS[0]:-0}
-              MINOR=${PARTS[1]:-0}
-              PATCH=${PARTS[2]:-0}
+              MAJOR=${PARTS[0]}
+              MINOR=${PARTS[1]}
+              PATCH=${PARTS[2]}
+
+              # Sanity check: ensure they are numbers
+              if ! [[ "$MAJOR" =~ ^[0-9]+$ ]]; then MAJOR=0; fi
+              if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then MINOR=0; fi
+              if ! [[ "$PATCH" =~ ^[0-9]+$ ]]; then PATCH=0; fi
+
               PATCH=$((PATCH + 1))
               NEW_VERSION="$MAJOR.$MINOR.$PATCH"
             fi
@@ -130,10 +140,6 @@ jobs:
           if git ls-remote --tags origin refs/tags/v$VERSION | grep -q "refs/tags/v$VERSION"; then
             echo "Tag v$VERSION already exists on origin. This shouldn't happen with auto-increment logic unless concurrent builds."
             echo "create_release=false" >> $GITHUB_OUTPUT
-            # Fail so we don't just succeed silently without releasing if that was the intent?
-            # Or just exit 0 and log warning?
-            # User wants to fix "already_exists" error. If we skip, we don't error, but we also don't release.
-            # But the calculation logic should ensure uniqueness.
             exit 1
           else
              git config user.name "github-actions[bot]"
