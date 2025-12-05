@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using TerraScale.MinimalEndpoints.Example.Models;
 using TerraScale.MinimalEndpoints.Example.Services;
 using TerraScale.MinimalEndpoints.Example.Groups;
@@ -16,12 +17,19 @@ public class GetUserEndpoint : BaseMinimalApiEndpoint<UserManagementGroup>
     /// <param name="id">The user ID</param>
     /// <param name="userService">The user service</param>
     /// <returns>The user if found, or null</returns>
-    /// <response code="200">User found or null if not found</response>
+    /// <response code="200">User found</response>
+    /// <response code="404">User not found</response>
     
+    [Authorize(Roles = "Admin")]
     [Produces("application/json")]
-    public async Task<User?> GetUser([FromRoute] int id, [FromServices] IUserService userService)
+    public async Task<IResult> GetUser([FromRoute] int id, [FromServices] IUserService userService)
     {
         await Task.Delay(1);
-        return userService.Get(id);
+        var user = userService.Get(id);
+        if (user == null)
+        {
+             return NotFound();
+        }
+        return Ok(user);
     }
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using TerraScale.MinimalEndpoints.Tests;
 
 namespace TerraScale.MinimalEndpoints.Tests;
 
@@ -12,6 +13,9 @@ public class GranularUserTests
     public async Task DeleteUser_NonExistent_ReturnsFalse()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
         var response = await client.DeleteAsync("/api/users/999999");
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);

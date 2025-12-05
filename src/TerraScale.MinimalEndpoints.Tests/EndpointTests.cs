@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Linq;
 using TerraScale.MinimalEndpoints.Example.Models;
+using TerraScale.MinimalEndpoints.Tests;
 
 namespace TerraScale.MinimalEndpoints.Tests;
 
@@ -35,6 +37,8 @@ public class EndpointTests
     public async Task UserEndpoints_CRUD_Flow()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
         // 1. Create User
         var createRequest = new CreateUserRequest("Alice");
@@ -65,14 +69,9 @@ public class EndpointTests
         var deleteResult = await deleteResponse.Content.ReadFromJsonAsync<bool>();
         await Assert.That(deleteResult).IsTrue();
 
-        // 5. Verify Deleted (Get returns null JSON)
+        // 5. Verify Deleted (Get returns NotFound)
         var getResponse2 = await client.GetAsync($"/api/users/{userId}");
-        await Assert.That(getResponse2.StatusCode).IsEqualTo(HttpStatusCode.OK); // Assuming default behavior
-        // Since it returns User? and it's null, Minimal API often writes "null" if JSON serialization is used, or empty body 200/204.
-        // Let's verify content.
-        var content = await getResponse2.Content.ReadAsStringAsync();
-        // It might be empty or "null" depending on configuration.
-        // Since I'm not configuring Results, it defaults to serialization.
+        await Assert.That(getResponse2.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 
     [Test]

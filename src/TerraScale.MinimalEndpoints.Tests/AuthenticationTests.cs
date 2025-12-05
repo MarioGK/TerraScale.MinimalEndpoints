@@ -4,6 +4,9 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using TerraScale.MinimalEndpoints.Tests;
 
 namespace TerraScale.MinimalEndpoints.Tests;
@@ -19,7 +22,7 @@ public class AuthenticationTests
         var client = WebApplicationFactory.CreateClient();
         var response = await client.GetAsync("/api/users/1");
 
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
     }
 
     [Test]
@@ -27,16 +30,13 @@ public class AuthenticationTests
     {
         var client = WebApplicationFactory.CreateClient();
         
-        // Create a user with Admin role (this would normally be done via login)
-        // For this test, we'll simulate having admin credentials
+        var token = TestHelpers.GenerateToken("Admin");
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "fake-admin-token");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         
         var response = await client.SendAsync(request);
 
-        // Note: This test may need adjustment based on actual auth implementation
-        // For now, we'll check that it doesn't return 403 (Forbidden)
-        await Assert.That(response.StatusCode).IsNotEqualTo(HttpStatusCode.Forbidden);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
@@ -54,15 +54,17 @@ public class AuthenticationTests
         var client = WebApplicationFactory.CreateClient();
         
         // Test with Admin role
+        var adminToken = TestHelpers.GenerateToken("Admin");
         var adminRequest = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
-        adminRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "admin-token");
+        adminRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         
         var adminResponse = await client.SendAsync(adminRequest);
-        await Assert.That(adminResponse.StatusCode).IsNotEqualTo(HttpStatusCode.Forbidden);
+        await Assert.That(adminResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
         // Test with User role (should be forbidden for admin-only endpoint)
+        var userToken = TestHelpers.GenerateToken("User");
         var userRequest = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
-        userRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "user-token");
+        userRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", userToken);
         
         var userResponse = await client.SendAsync(userRequest);
         await Assert.That(userResponse.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
@@ -71,18 +73,33 @@ public class AuthenticationTests
     [Test]
     public async Task Multiple_Authorize_Attributes_On_Endpoint_And_Group_Are_Combined()
     {
-        // Test that authorization on both endpoint and group levels work together
         var client = WebApplicationFactory.CreateClient();
+
+        // Group has [Authorize(Roles="Admin")]
+        // Request without token
         var response = await client.GetAsync("/grouped/test");
 
-        // Should return 401 since group has [Authorize(Roles="Admin")]
+        // Should return 401 (Unauthorized) because no token
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
+
+        // Test with User token (should be 403 Forbidden)
+        var userToken = TestHelpers.GenerateToken("User");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/grouped/test");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", userToken);
+        var responseForbidden = await client.SendAsync(request);
+        await Assert.That(responseForbidden.StatusCode).IsEqualTo(HttpStatusCode.Forbidden);
+
+        // Test with Admin token (should be 200 OK)
+        var adminToken = TestHelpers.GenerateToken("Admin");
+        var requestOk = new HttpRequestMessage(HttpMethod.Get, "/grouped/test");
+        requestOk.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
+        var responseOk = await client.SendAsync(requestOk);
+        await Assert.That(responseOk.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
     public async Task Policy_Based_Authorization_Works_Correctly()
     {
-        // Test that policy-based authorization works
         var client = WebApplicationFactory.CreateClient();
         var response = await client.GetAsync("/api/policy-protected");
 
@@ -92,11 +109,10 @@ public class AuthenticationTests
     [Test]
     public async Task Authentication_Scheme_Is_Handled_Correctly()
     {
-        // Test that the custom authentication scheme is configured
         var client = WebApplicationFactory.CreateClient();
         var response = await client.GetAsync("/api/weather?city=London");
 
-        // Weather endpoint doesn't require auth, so should be accessible
+        // Weather endpoint doesn't require auth
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 }

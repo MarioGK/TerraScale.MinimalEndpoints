@@ -8,4 +8,7 @@ internal class EndpointParameter
     public bool IsFromBody { get; set; }
     public bool IsFromRoute { get; set; }
     public bool IsFromQuery { get; set; }
+    public bool IsFromHeader { get; set; }
+    public string? FromHeaderName { get; set; }
+    public bool IsFromForm { get; set; }
 }
