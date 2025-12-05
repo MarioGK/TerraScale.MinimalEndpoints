@@ -22,9 +22,9 @@ public class WeatherEndpoints : BaseMinimalApiEndpoint<WeatherGroup>
     /// <response code="400">Invalid city name provided</response>
     
     [Produces("application/json", "text/plain")]
-    public async Task<string> GetWeather([FromQuery] string city)
+    public async Task<string> GetWeather([FromQuery] string? city = "London")
     {
         await Task.Delay(1); // Simulate async work
-        return $"Weather in {city} is Sunny";
+        return $"Weather in {city ?? "London"} is Sunny";
     }
 }

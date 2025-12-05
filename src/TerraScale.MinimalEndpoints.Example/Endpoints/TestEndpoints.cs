@@ -7,7 +7,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
 public class PublicEndpoint : BaseMinimalApiEndpoint
 {
-    public override string Route => "public/test";
+    public override string Route => "api/public/test";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
     public Task<string> Get()

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using TerraScale.MinimalEndpoints.Example.Models;
 using TerraScale.MinimalEndpoints.Example.Services;
 
@@ -9,14 +10,9 @@ public class Error500Endpoint : BaseMinimalApiEndpoint
     public override string Route => "api/error/500";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
-    public Task<ProblemDetails> InternalServerError()
+    public Task<IResult> InternalServerError()
     {
-        return Task.FromResult(new ProblemDetails
-        {
-            Status = 500,
-            Title = "Internal Server Error",
-            Detail = "Internal server error occurred"
-        });
+        return Task.FromResult(Problem(statusCode: 500, detail: "Internal server error"));
     }
 }
 
@@ -25,9 +21,9 @@ public class ErrorCustomEndpoint : BaseMinimalApiEndpoint
     public override string Route => "api/error/custom";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
-    public Task<string> CustomError()
+    public Task<IResult> CustomError()
     {
-        return Task.FromResult("Custom error message");
+        return Task.FromResult(BadRequest("Custom error message"));
     }
 }
 
@@ -36,21 +32,23 @@ public class ErrorExceptionEndpoint : BaseMinimalApiEndpoint
     public override string Route => "api/error/exception";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
-    public Task<string> ThrowException()
+    public Task<IResult> ThrowException()
     {
+        // To throw exception in async task
         throw new InvalidOperationException("Test exception");
+        // Or return Task.FromException(new InvalidOperationException(...));
     }
 }
 
 public class ErrorTimeoutEndpoint : BaseMinimalApiEndpoint
 {
-    public override string Route => "api/error/timeout";
+    public override string Route => "api/slow/timeout";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
-    public Task<string> SlowEndpoint()
+    public async Task<string> SlowEndpoint()
     {
         // Simulate a slow operation
-        Task.Delay(TimeSpan.FromSeconds(2)).Wait();
-        return Task.FromResult("Response after delay");
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        return "Response after delay";
     }
 }

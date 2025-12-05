@@ -182,6 +182,14 @@ internal static class EndpointRegistrationGenerator
                 if (param.IsFromBody) attributes.Add("[Microsoft.AspNetCore.Mvc.FromBody]");
                 if (param.IsFromQuery) attributes.Add("[Microsoft.AspNetCore.Mvc.FromQuery]");
                 if (param.IsFromRoute) attributes.Add("[Microsoft.AspNetCore.Mvc.FromRoute]");
+                if (param.IsFromHeader)
+                {
+                    if (!string.IsNullOrEmpty(param.FromHeaderName))
+                        attributes.Add($"[Microsoft.AspNetCore.Mvc.FromHeader(Name = \"{EscapeString(param.FromHeaderName)}\")]");
+                    else
+                        attributes.Add("[Microsoft.AspNetCore.Mvc.FromHeader]");
+                }
+                if (param.IsFromForm) attributes.Add("[Microsoft.AspNetCore.Mvc.FromForm]");
 
                 var attrString = attributes.Any() ? string.Join(" ", attributes) + " " : "";
                 lambdaParams.Add($"{attrString}{param.Type} {param.Name}");

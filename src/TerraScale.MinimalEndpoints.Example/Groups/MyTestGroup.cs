@@ -8,7 +8,7 @@ using TerraScale.MinimalEndpoints.Groups;
 namespace TerraScale.MinimalEndpoints.Example.Groups;
 
 [EndpointGroupName("Custom Group Name")]
-//[Authorize(Roles = "Admin")] // Commented out to allow testing without Auth setup
+[Authorize(Roles = "Admin")]
 public class MyTestGroup : EndpointGroup
 {
     public override string Name => "My Test Group";
