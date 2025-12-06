@@ -8,7 +8,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
 public class DeleteUserEndpoint : BaseMinimalApiEndpoint<UserManagementGroup>
 {
-    public override string Route => "api/users/{id}";
+    public override string Route => "{id}";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Delete;
     
     [Authorize(Roles = "Admin")]

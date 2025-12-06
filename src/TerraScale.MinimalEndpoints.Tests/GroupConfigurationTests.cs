@@ -113,7 +113,10 @@ public class GroupConfigurationTests
     public async Task Nested_Groups_Are_Supported()
     {
         var client = WebApplicationFactory.CreateClient();
-        var response = await client.GetAsync("/grouped/test");
+        var token = TestHelpers.GenerateToken("Admin");
+        var request = new HttpRequestMessage(HttpMethod.Get, "/grouped/test");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var response = await client.SendAsync(request);
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }

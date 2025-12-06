@@ -68,9 +68,9 @@ internal static class XmlDocumentationHelper
         return responses;
     }
 
-    public static List<string> GetParameterDescriptions(ISymbol symbol)
+    public static Dictionary<string, string> GetParameterDescriptions(ISymbol symbol)
     {
-        var descriptions = new List<string>();
+        var descriptions = new Dictionary<string, string>();
         var xmlComment = symbol.GetDocumentationCommentXml();
 
         if (string.IsNullOrEmpty(xmlComment))
@@ -82,9 +82,13 @@ internal static class XmlDocumentationHelper
         var paramNodes = doc.SelectNodes("//param");
         foreach (XmlNode? paramNode in paramNodes)
         {
-            if (paramNode?.InnerText != null)
+            if (paramNode?.Attributes != null)
             {
-                descriptions.Add(paramNode.InnerText.Trim());
+                var nameAttr = paramNode.Attributes["name"];
+                if (nameAttr != null && !string.IsNullOrEmpty(nameAttr.Value))
+                {
+                    descriptions[nameAttr.Value] = paramNode.InnerText?.Trim() ?? string.Empty;
+                }
             }
         }
 

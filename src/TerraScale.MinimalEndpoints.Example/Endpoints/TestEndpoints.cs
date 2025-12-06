@@ -20,7 +20,7 @@ public class PublicEndpoint : BaseMinimalApiEndpoint
 [Authorize(Policy = "AdminOnly")]
 public class PolicyProtectedEndpoint : BaseMinimalApiEndpoint
 {
-    public override string Route => "";
+    public override string Route => "api/policy-protected";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
 
     public Task<string> Get()

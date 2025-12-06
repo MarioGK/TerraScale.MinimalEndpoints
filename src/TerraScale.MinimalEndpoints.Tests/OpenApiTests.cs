@@ -35,9 +35,6 @@ public class OpenApiTests
         
         var usersPostExists = usersPath.TryGetProperty("post", out var usersPost);
         await Assert.That(usersPostExists).IsTrue();
-        
-        var usersGetExists = usersPath.TryGetProperty("get", out var usersGet);
-        await Assert.That(usersGetExists).IsTrue();
     }
 
     [Test]

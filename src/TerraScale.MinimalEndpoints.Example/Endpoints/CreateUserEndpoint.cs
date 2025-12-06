@@ -8,7 +8,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
 public class CreateUserEndpoint : BaseMinimalApiEndpoint<UserManagementGroup>
 {
-    public override string Route => "api/users";
+    public override string Route => "";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Post;
 
     /// <summary>
@@ -25,7 +25,7 @@ public class CreateUserEndpoint : BaseMinimalApiEndpoint<UserManagementGroup>
     /// <response code="400">Invalid user data provided</response>
     /// <response code="403">Admin privileges required</response>
     [Authorize(Roles = "Admin")]
-    [Produces("application/json")]
+    [Produces("application/json", Type = typeof(User))]
     [Consumes("application/json")]
     public async Task<IResult> CreateUser([FromBody] CreateUserRequest request, [FromServices] IUserService userService)
     {

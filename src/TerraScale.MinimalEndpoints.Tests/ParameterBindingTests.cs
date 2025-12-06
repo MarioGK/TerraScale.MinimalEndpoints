@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.ComponentModel.DataAnnotations;
 using TerraScale.MinimalEndpoints.Example.Models;
@@ -26,18 +27,28 @@ public class ParameterBindingTests
     public async Task FromRoute_Parameter_Binds_Correctly()
     {
         var client = WebApplicationFactory.CreateClient();
-        var response = await client.GetAsync("/api/users/123");
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var createUser = new CreateUserRequest("RouteTest");
+        var createResponse = await client.PostAsJsonAsync("/api/users", createUser);
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<User>();
+
+        var response = await client.GetAsync($"/api/users/{createdUser!.Id}");
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
         var user = await response.Content.ReadFromJsonAsync<User>();
         await Assert.That(user).IsNotNull();
-        await Assert.That(user!.Id).IsEqualTo(123);
+        await Assert.That(user!.Id).IsEqualTo(createdUser.Id);
     }
 
     [Test]
     public async Task FromBody_Parameter_Binds_Correctly()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var createUser = new CreateUserRequest("John Doe");
         var response = await client.PostAsJsonAsync("/api/users", createUser);
 
@@ -62,8 +73,15 @@ public class ParameterBindingTests
     public async Task Multiple_Parameters_Bind_Correctly()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var createUser = new CreateUserRequest("UpdateTest");
+        var createResponse = await client.PostAsJsonAsync("/api/users", createUser);
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<User>();
+
         var updateUser = new UpdateUserRequest("Updated Name");
-        var response = await client.PutAsJsonAsync("/api/users/456", updateUser);
+        var response = await client.PutAsJsonAsync($"/api/users/{createdUser!.Id}", updateUser);
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
         var updatedUser = await response.Content.ReadFromJsonAsync<User>();
@@ -75,6 +93,9 @@ public class ParameterBindingTests
     public async Task Missing_Required_Parameter_Returns_ValidationError()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var response = await client.PostAsJsonAsync("/api/users", new CreateUserRequest(""));
 
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
@@ -84,6 +105,9 @@ public class ParameterBindingTests
     public async Task Invalid_Parameter_Returns_ValidationError()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var createUser = new CreateUserRequest(""); // Empty name should be invalid
         var response = await client.PostAsJsonAsync("/api/users", createUser);
 
@@ -94,6 +118,9 @@ public class ParameterBindingTests
     public async Task Complex_Object_Parameter_Binds_Correctly()
     {
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var complexRequest = new
         {
             Name = "Complex User",
@@ -128,6 +155,8 @@ public class ParameterBindingTests
     {
         // Test that validation attributes work
         var client = WebApplicationFactory.CreateClient();
+        var token = TestHelpers.GenerateToken("Admin");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         
         // Test with invalid email format (assuming email validation exists)
         var invalidUser = new CreateUserRequest("invalid-email");

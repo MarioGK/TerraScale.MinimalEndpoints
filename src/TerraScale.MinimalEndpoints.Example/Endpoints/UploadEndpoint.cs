@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,5 +17,10 @@ public class UploadEndpoint : BaseMinimalApiEndpoint
             return BadRequest("No file uploaded");
 
         return Ok(new { FileName = file.FileName, Size = file.Length });
+    }
+
+    public static void Configure(RouteHandlerBuilder builder)
+    {
+        builder.DisableAntiforgery();
     }
 }

@@ -7,6 +7,7 @@ internal class EndpointMethod
     public string MethodName { get; set; } = string.Empty;
     public string HttpMethod { get; set; } = string.Empty;
     public string Route { get; set; } = string.Empty;
+    public bool HasExplicitRoute { get; set; }
     public List<EndpointParameter> Parameters { get; set; } = new();
     public string ReturnType { get; set; } = string.Empty;
     public string ReturnTypeInner { get; set; } = "void";
@@ -24,7 +25,7 @@ internal class EndpointMethod
     public List<ProducesInfo> Produces { get; set; } = new();
     public List<string> Consumes { get; set; } = new();
     public Dictionary<int, string> ResponseDescriptions { get; set; } = new();
-    public List<string> ParameterDescriptions { get; set; } = new();
+    public Dictionary<string, string> ParameterDescriptions { get; set; } = new();
     public bool HasConfigureMethod { get; set; }
     public List<string> EndpointFilters { get; set; } = new();
 }
@@ -32,5 +33,6 @@ internal class EndpointMethod
 internal class ProducesInfo
 {
     public int StatusCode { get; set; }
+    public string? ResponseType { get; set; }
     public List<string> ContentTypes { get; set; } = new();
 }

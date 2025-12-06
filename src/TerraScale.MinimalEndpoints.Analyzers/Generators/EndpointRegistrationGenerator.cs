@@ -122,7 +122,12 @@ internal static class EndpointRegistrationGenerator
                                 if (groupModel.Tags.Any())
                                 {
                                     var tagsArgs = string.Join(", ", groupModel.Tags.Select(t => $"\"{EscapeString(t)}\""));
-                                    sb.AppendLine($"{builderName}.WithTags(new[] {{ {tagsArgs} }});");
+                                    sb.AppendLine($"{builderName}.WithTags(new[] {{ {tagsArgs} }})");
+                                    sb.AppendLine($"    .WithTags(new {groupModel.TypeFullName}().Name);");
+                                }
+                                else
+                                {
+                                    sb.AppendLine($"{builderName}.WithTags(new {groupModel.TypeFullName}().Name);");
                                 }
 
                                 // Filters
@@ -156,9 +161,13 @@ internal static class EndpointRegistrationGenerator
         using (sb.Indent())
         {
             string routePattern;
-            if (string.IsNullOrEmpty(method.Route))
+            if (!method.HasExplicitRoute && string.IsNullOrEmpty(method.Route))
             {
                 routePattern = $"/{method.ClassName}/{method.MethodName}";
+            }
+            else if (string.IsNullOrEmpty(method.Route))
+            {
+                routePattern = string.Empty;
             }
             else
             {
@@ -260,8 +269,9 @@ internal static class EndpointRegistrationGenerator
                  var first = prod.ContentTypes.FirstOrDefault() ?? "application/json";
                  var others = prod.ContentTypes.Skip(1).Select(p => $"\"{EscapeString(p)}\"").ToList();
                  var othersArg = others.Any() ? ", " + string.Join(", ", others) : "";
+                 var responseType = !string.IsNullOrEmpty(prod.ResponseType) ? $"typeof({prod.ResponseType})" : $"typeof({method.ReturnTypeInner})";
 
-                 sb.AppendLine($"builder.Produces({prod.StatusCode}, typeof({method.ReturnTypeInner}), \"{EscapeString(first)}\"{othersArg});");
+                 sb.AppendLine($"builder.Produces({prod.StatusCode}, {responseType}, \"{EscapeString(first)}\"{othersArg});");
             }
 
             if (method.Consumes.Any())
@@ -282,9 +292,28 @@ internal static class EndpointRegistrationGenerator
                  sb.AppendLine($"builder.Produces({response.Key}, {typeToUse});");
             }
 
+            if (method.ParameterDescriptions.Any())
+            {
+                sb.AppendLine("#pragma warning disable ASPDEPR002");
+                sb.AppendLine("builder.WithOpenApi(op => {");
+                sb.AppendLine("    if (op.Parameters != null)");
+                sb.AppendLine("    {");
+                foreach (var paramDesc in method.ParameterDescriptions)
+                {
+                    sb.AppendLine($"        var param_{paramDesc.Key} = op.Parameters.FirstOrDefault(p => p.Name == \"{EscapeString(paramDesc.Key)}\");");
+                    sb.AppendLine($"        if (param_{paramDesc.Key} != null) param_{paramDesc.Key}.Description = \"{EscapeString(paramDesc.Value)}\";");
+                }
+                sb.AppendLine("    }");
+                sb.AppendLine("    return op;");
+                sb.AppendLine("});");
+                sb.AppendLine("#pragma warning restore ASPDEPR002");
+            }
+
             if (method.IsDeprecated)
             {
+                sb.AppendLine("#pragma warning disable ASPDEPR002");
                 sb.AppendLine($"builder.WithOpenApi(op => {{ op.Deprecated = true; return op; }});");
+                sb.AppendLine("#pragma warning restore ASPDEPR002");
             }
 
             if (method.HasAllowAnonymous)

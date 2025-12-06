@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using TerraScale.MinimalEndpoints.Tests;
+using TerraScale.MinimalEndpoints.Example.Models;
 
 namespace TerraScale.MinimalEndpoints.Tests;
 
@@ -31,7 +32,15 @@ public class AuthenticationTests
         var client = WebApplicationFactory.CreateClient();
         
         var token = TestHelpers.GenerateToken("Admin");
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
+
+        // Create User first
+        var createRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        createRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        createRequest.Content = JsonContent.Create(new CreateUserRequest("TestUserAuth"));
+        var createResponse = await client.SendAsync(createRequest);
+        var createdUser = await createResponse.Content.ReadFromJsonAsync<User>();
+
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/users/{createdUser!.Id}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         
         var response = await client.SendAsync(request);
@@ -53,9 +62,18 @@ public class AuthenticationTests
     {
         var client = WebApplicationFactory.CreateClient();
         
+        // Create User first with Admin token
+        var setupToken = TestHelpers.GenerateToken("Admin");
+        var setupRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users");
+        setupRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", setupToken);
+        setupRequest.Content = JsonContent.Create(new CreateUserRequest("TestUserRole"));
+        var setupRes = await client.SendAsync(setupRequest);
+        var user = await setupRes.Content.ReadFromJsonAsync<User>();
+        var userId = user!.Id;
+
         // Test with Admin role
         var adminToken = TestHelpers.GenerateToken("Admin");
-        var adminRequest = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
+        var adminRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/users/{userId}");
         adminRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         
         var adminResponse = await client.SendAsync(adminRequest);
@@ -63,7 +81,7 @@ public class AuthenticationTests
 
         // Test with User role (should be forbidden for admin-only endpoint)
         var userToken = TestHelpers.GenerateToken("User");
-        var userRequest = new HttpRequestMessage(HttpMethod.Get, "/api/users/1");
+        var userRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/users/{userId}");
         userRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", userToken);
         
         var userResponse = await client.SendAsync(userRequest);

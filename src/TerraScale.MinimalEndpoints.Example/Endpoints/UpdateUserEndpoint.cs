@@ -9,7 +9,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
 public class UpdateUserEndpoint : BaseMinimalApiEndpoint<UserManagementGroup>
 {
-    public override string Route => "api/users/{id}";
+    public override string Route => "{id}";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Put;
     
     [Authorize(Roles = "Admin")]

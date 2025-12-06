@@ -9,7 +9,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
     [UsedImplicitly]
 public class ServiceEndpoints : BaseMinimalApiEndpoint<ServiceApiGroup>
 {
-    public override string Route => "api/services/greet";
+    public override string Route => "greet";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
     /// <summary>
     /// Greets a user with a personalized message

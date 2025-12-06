@@ -7,7 +7,7 @@ namespace TerraScale.MinimalEndpoints.Example.Endpoints;
 
 public class WeatherEndpoints : BaseMinimalApiEndpoint<WeatherGroup>
 {
-    public override string Route => "api/weather";
+    public override string Route => "";
     public override EndpointHttpMethod HttpMethod => EndpointHttpMethod.Get;
     /// <summary>
     /// Gets weather information for a city

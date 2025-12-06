@@ -15,8 +15,6 @@ public class GroupTests
         // The route is /grouped/test
         var response = await client.GetAsync("/grouped/test");
 
-        // TODO: Fix source generator to properly register grouped endpoints
-        // For now, endpoint returns 404 because it's not being registered
-        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Unauthorized);
     }
 }

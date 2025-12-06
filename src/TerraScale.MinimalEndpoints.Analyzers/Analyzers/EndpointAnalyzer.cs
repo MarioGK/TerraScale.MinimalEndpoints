@@ -68,7 +68,7 @@ internal static class EndpointAnalyzer
         return classDeclaration;
     }
 
-    public static EndpointMethod? AnalyzeEndpointMethod(IMethodSymbol methodSymbol, ClassDeclarationSyntax classSyntax, SemanticModel semanticModel, string baseRoute, List<Diagnostic> diagnostics)
+    public static EndpointMethod? AnalyzeEndpointMethod(IMethodSymbol methodSymbol, ClassDeclarationSyntax classSyntax, SemanticModel semanticModel, string? baseRoute, List<Diagnostic> diagnostics)
     {
         var methodSyntax = classSyntax.DescendantNodes()
             .OfType<MethodDeclarationSyntax>()
@@ -158,12 +158,17 @@ internal static class EndpointAnalyzer
              }
         }
 
-        var effectiveBaseRoute = string.IsNullOrEmpty(baseRoute) ? string.Empty : baseRoute;
+        string effectiveBaseRoute = string.IsNullOrEmpty(baseRoute) ? string.Empty : baseRoute!;
+        var hasExplicitRoute = !string.IsNullOrEmpty(route);
+
         if (string.IsNullOrEmpty(route))
         {
             var rs = GetBaseRoute(methodSymbol.ContainingType);
-            if (!string.IsNullOrEmpty(rs))
+            if (rs != null)
+            {
                 effectiveBaseRoute = rs;
+                hasExplicitRoute = true;
+            }
         }
 
         var fullRoute = CombineRoutes(effectiveBaseRoute, route);
@@ -171,10 +176,16 @@ internal static class EndpointAnalyzer
         var parameters = new List<EndpointParameter>();
         foreach (var param in methodSymbol.Parameters)
         {
+            var typeName = param.Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "object";
+            if (param.NullableAnnotation == NullableAnnotation.Annotated && !typeName.EndsWith("?"))
+            {
+                typeName += "?";
+            }
+
             var endpointParam = new EndpointParameter
             {
                 Name = param.Name,
-                Type = param.Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ?? "object",
+                Type = typeName,
                 IsFromServices = param.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("FromServices") == true),
                 IsFromBody = param.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("FromBody") == true),
                 IsFromRoute = param.GetAttributes().Any(a => a.AttributeClass?.Name.Contains("FromRoute") == true),
@@ -221,6 +232,8 @@ internal static class EndpointAnalyzer
 
         string? groupName = null;
 
+        string? groupTypeFullName = null;
+
         var baseType = methodSymbol.ContainingType.BaseType;
         if (baseType != null && baseType.IsGenericType)
         {
@@ -231,6 +244,7 @@ internal static class EndpointAnalyzer
                 if (typeArg != null)
                 {
                     groupName = GetGroupNameFromGroupType(typeArg as INamedTypeSymbol);
+                    groupTypeFullName = typeArg.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 }
             }
         }
@@ -297,6 +311,7 @@ internal static class EndpointAnalyzer
             MethodName = methodSymbol.Name,
             HttpMethod = httpMethod ?? string.Empty,
             Route = fullRoute,
+            HasExplicitRoute = hasExplicitRoute,
             Parameters = parameters,
             ReturnType = methodSymbol.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
             ReturnTypeInner = returnTypeInner,
@@ -310,6 +325,7 @@ internal static class EndpointAnalyzer
             Tags = tags,
             IsDeprecated = isDeprecated,
             GroupName = groupName,
+            GroupTypeFullName = groupTypeFullName,
             Produces = produces,
             Consumes = consumes,
             ResponseDescriptions = responseDescriptions,
@@ -335,11 +351,11 @@ internal static class EndpointAnalyzer
         return filters;
     }
 
-    public static string GetBaseRoute(INamedTypeSymbol classSymbol)
+    public static string? GetBaseRoute(INamedTypeSymbol classSymbol)
     {
         var routeFromProp = ExtractStringFromProperty(classSymbol, new[] { "Route", "BaseRoute" });
-        if (!string.IsNullOrEmpty(routeFromProp))
-            return routeFromProp ?? string.Empty;
+        if (routeFromProp != null)
+            return routeFromProp;
 
         var minimalEndpointsAttribute = classSymbol.GetAttributes()
             .FirstOrDefault(a => a.AttributeClass?.Name.Contains("MinimalEndpoints") == true);
@@ -349,7 +365,7 @@ internal static class EndpointAnalyzer
             return minimalEndpointsAttribute.ConstructorArguments[0].Value?.ToString() ?? string.Empty;
         }
 
-        return string.Empty;
+        return null;
     }
 
     private static string? GetHttpMethodFromClass(INamedTypeSymbol classSymbol)
@@ -614,14 +630,18 @@ internal static class EndpointAnalyzer
 
             if (attribute.ConstructorArguments.Length > 0)
             {
-                var args = attribute.ConstructorArguments[0];
-                if (args.Kind == TypedConstantKind.Array)
+                var arg0 = attribute.ConstructorArguments[0];
+                if (arg0.Kind == TypedConstantKind.Type && arg0.Value is INamedTypeSymbol typeSymbol)
                 {
-                    info.ContentTypes.AddRange(args.Values.Select(v => v.Value?.ToString() ?? string.Empty));
+                    info.ResponseType = typeSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
                 }
-                else if (args.Value != null)
+                else if (arg0.Kind == TypedConstantKind.Array)
                 {
-                    info.ContentTypes.Add(args.Value.ToString());
+                    info.ContentTypes.AddRange(arg0.Values.Select(v => v.Value?.ToString() ?? string.Empty));
+                }
+                else if (arg0.Value != null)
+                {
+                    info.ContentTypes.Add(arg0.Value.ToString());
                 }
             }
 
@@ -629,6 +649,12 @@ internal static class EndpointAnalyzer
             if (statusCodeArg.Key != null && statusCodeArg.Value.Value is int code)
             {
                 info.StatusCode = code;
+            }
+
+            var typeArg = attribute.NamedArguments.FirstOrDefault(a => a.Key == "Type");
+            if (typeArg.Key != null && typeArg.Value.Value is INamedTypeSymbol namedType)
+            {
+                info.ResponseType = namedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             }
 
             result.Add(info);
